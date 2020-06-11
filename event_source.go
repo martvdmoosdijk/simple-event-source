@@ -2,10 +2,13 @@ package simple_event_source
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"sync"
 	"time"
 )
+
+// TODO Snapshots
 
 var _ IEventSource = &EventSource{}
 
@@ -16,11 +19,11 @@ type IEventSource interface {
 }
 
 type EventSource struct {
-	// TODO - Add ID?
-	EventRegistry map[string]reflect.Type
-	EventProvider IEventProvider
-	Position      int64 // TODO - Time string instead of counter?
-	AddEventLock  sync.Mutex
+	// TODO - Add ID/Aggregate?
+	EventRegistry  map[string]reflect.Type
+	EventProvider  IEventProvider
+	LatestPosition int64
+	AddEventLock   sync.Mutex
 }
 
 type IEventProvider interface {
@@ -42,9 +45,9 @@ type EventEntry struct {
 
 func New(eventProvider IEventProvider) EventSource {
 	return EventSource{
-		EventRegistry: make(map[string]reflect.Type),
-		EventProvider: eventProvider,
-		Position:      0,
+		EventRegistry:  make(map[string]reflect.Type),
+		EventProvider:  eventProvider,
+		LatestPosition: 0,
 	}
 }
 
@@ -54,24 +57,23 @@ func (self *EventSource) RegisterEventType(event IEvent) {
 }
 
 func (self *EventSource) ReplayEvents() {
-	for event := range self.EventProvider.ReadEvents() {
-		if event.Position > self.Position {
-			self.Position = event.Position
+	for eventEntry := range self.EventProvider.ReadEvents() {
+		if eventEntry.Position < self.LatestPosition {
+			panic(fmt.Errorf("ReplayEvents panic: Event position %v is lower than latest known position %v", eventEntry.Position, self.LatestPosition))
 		}
+		self.LatestPosition = eventEntry.Position
 
-		typedEvent := reflect.New(self.EventRegistry[event.Type])
-		bodyData, err := json.Marshal(event.Body)
+		event := reflect.New(self.EventRegistry[eventEntry.Type])
+		data, err := json.Marshal(eventEntry.Body)
 		if err != nil {
 			panic(err)
 		}
 
-		// Write body to typedEvent
-		if err := json.Unmarshal(bodyData, typedEvent.Interface()); err != nil {
+		if err := json.Unmarshal(data, event.Interface()); err != nil {
 			panic(err)
 		}
 
-		// Parse and consume event
-		(typedEvent.Interface().(IEvent)).Consume()
+		(event.Interface().(IEvent)).Consume()
 	}
 }
 
@@ -79,9 +81,9 @@ func (self *EventSource) AddEvent(event IEvent) error {
 	self.AddEventLock.Lock()
 	defer self.AddEventLock.Unlock()
 
-	self.Position++
+	self.LatestPosition++
 	eventEntry := EventEntry{
-		Position:  self.Position,
+		Position:  self.LatestPosition,
 		Body:      event,
 		Type:      reflect.TypeOf(event).Name(),
 		Timestamp: time.Now().UTC(),
