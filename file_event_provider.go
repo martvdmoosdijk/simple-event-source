@@ -1,4 +1,4 @@
-package simple_event_source
+package simpleventsrc
 
 import (
 	"bufio"

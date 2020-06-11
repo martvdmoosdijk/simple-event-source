@@ -1,3 +1,3 @@
 # Simple event sourcing
 
-WIP
+Simple event sourcing implementation without CQRS.

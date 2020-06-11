@@ -1,4 +1,4 @@
-package simple_event_source
+package simpleventsrc
 
 import (
 	"encoding/json"
@@ -26,16 +26,6 @@ type EventSource struct {
 	AddEventLock   sync.Mutex
 }
 
-type IEventProvider interface {
-	ReadEvents() <-chan EventEntry
-	SaveEvent(EventEntry) error
-}
-
-type IEvent interface {
-	Validate() error
-	Consume()
-}
-
 type EventEntry struct {
 	Position  int64       `json:"position"`
 	Body      interface{} `json:"body"`
@@ -43,7 +33,7 @@ type EventEntry struct {
 	Timestamp time.Time   `json:"timestamp"`
 }
 
-func New(eventProvider IEventProvider) EventSource {
+func NewEventSource(eventProvider IEventProvider) EventSource {
 	return EventSource{
 		EventRegistry:  make(map[string]reflect.Type),
 		EventProvider:  eventProvider,
@@ -51,19 +41,18 @@ func New(eventProvider IEventProvider) EventSource {
 	}
 }
 
-func (self *EventSource) RegisterEventType(event IEvent) {
-	eventName := reflect.TypeOf(event).Name()
-	self.EventRegistry[eventName] = reflect.TypeOf(event)
+func (es *EventSource) RegisterEventType(event IEvent) {
+	es.EventRegistry[nameOf(event)] = reflect.TypeOf(event)
 }
 
-func (self *EventSource) ReplayEvents() {
-	for eventEntry := range self.EventProvider.ReadEvents() {
-		if eventEntry.Position < self.LatestPosition {
-			panic(fmt.Errorf("ReplayEvents panic: Event position %v is lower than latest known position %v", eventEntry.Position, self.LatestPosition))
+func (es *EventSource) ReplayEvents() {
+	for eventEntry := range es.EventProvider.ReadEvents() {
+		if eventEntry.Position < es.LatestPosition {
+			panic(fmt.Errorf("ReplayEvents panic: Event position %v is lower than latest known position %v", eventEntry.Position, es.LatestPosition))
 		}
-		self.LatestPosition = eventEntry.Position
+		es.LatestPosition = eventEntry.Position
 
-		event := reflect.New(self.EventRegistry[eventEntry.Type])
+		event := reflect.New(es.EventRegistry[eventEntry.Type])
 		data, err := json.Marshal(eventEntry.Body)
 		if err != nil {
 			panic(err)
@@ -77,19 +66,21 @@ func (self *EventSource) ReplayEvents() {
 	}
 }
 
-func (self *EventSource) AddEvent(event IEvent) error {
-	self.AddEventLock.Lock()
-	defer self.AddEventLock.Unlock()
+func (es *EventSource) AddEvent(event IEvent) error {
+	es.AddEventLock.Lock()
+	defer es.AddEventLock.Unlock()
 
-	self.LatestPosition++
+	// TODO Check if event type is in registry
+
+	es.LatestPosition++
 	eventEntry := EventEntry{
-		Position:  self.LatestPosition,
+		Position:  es.LatestPosition,
 		Body:      event,
-		Type:      reflect.TypeOf(event).Name(),
+		Type:      nameOf(event),
 		Timestamp: time.Now().UTC(),
 	}
 
-	if err := self.EventProvider.SaveEvent(eventEntry); err != nil {
+	if err := es.EventProvider.SaveEvent(eventEntry); err != nil {
 		return err
 	}
 
