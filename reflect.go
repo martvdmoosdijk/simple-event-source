@@ -4,10 +4,10 @@ import (
 	"reflect"
 )
 
-func nameOf(iface interface{}) string {
-	if t := reflect.TypeOf(iface); t.Kind() == reflect.Ptr {
-		return t.Elem().Name()
+func typeOf(item interface{}) reflect.Type {
+	if t := reflect.TypeOf(item); t.Kind() == reflect.Ptr {
+		return t.Elem()
 	} else {
-		return t.Name()
+		return t
 	}
 }

@@ -13,6 +13,7 @@ type FileEventProvider struct {
 	File string
 }
 
+// TODO - Write tests
 func (self *FileEventProvider) ReadEvents() <-chan EventEntry {
 	if self.File == "" {
 		self.File = "events.log"

@@ -6,11 +6,11 @@ type IEvent interface {
 }
 
 type EventMock struct {
-	TotalInvocations    int
-	ValidateInvocations int
 	ValidateMock        func() error
-	ConsumeInvocations  int
+	ValidateInvocations int
 	ConsumeMock         func()
+	ConsumeInvocations  int
+	TotalInvocations    int
 }
 
 var _ IEvent = &EventMock{}
@@ -20,17 +20,18 @@ func (e *EventMock) Validate() error {
 	e.TotalInvocations++
 
 	if e.ValidateMock == nil {
-		return e.ValidateMock()
+		panic("EventMock.ValidateMock() not implemented")
 	}
-
-	return nil
+	return e.ValidateMock()
 }
 
 func (e *EventMock) Consume() {
 	e.ConsumeInvocations++
 	e.TotalInvocations++
 
+	// TODO
 	if e.ConsumeMock == nil {
-		e.ConsumeMock()
+		panic("EventMock.ConsumeMock() not implemented")
 	}
+	e.ConsumeMock()
 }

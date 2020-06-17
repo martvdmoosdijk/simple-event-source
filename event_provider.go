@@ -6,11 +6,11 @@ type IEventProvider interface {
 }
 
 type EventProviderMock struct {
-	TotalInvocations      int
-	ReadEventsInvocations int
 	ReadEventsMock        func() <-chan EventEntry
-	SaveEventInvocations  int
+	ReadEventsInvocations int
 	SaveEventMock         func(EventEntry) error
+	SaveEventInvocations  int
+	TotalInvocations      int
 }
 
 var _ IEventProvider = &EventProviderMock{}
@@ -20,12 +20,9 @@ func (ep *EventProviderMock) ReadEvents() <-chan EventEntry {
 	ep.TotalInvocations++
 
 	if ep.ReadEventsMock == nil {
-		return ep.ReadEventsMock()
+		panic("EventProviderMock.ReadEventsMock() not implemented")
 	}
-
-	c := make(chan EventEntry)
-	close(c)
-	return c
+	return ep.ReadEventsMock()
 }
 
 func (ep *EventProviderMock) SaveEvent(entry EventEntry) error {
@@ -33,8 +30,7 @@ func (ep *EventProviderMock) SaveEvent(entry EventEntry) error {
 	ep.TotalInvocations++
 
 	if ep.SaveEventMock == nil {
-		return ep.SaveEventMock(entry)
+		panic("EventProviderMock.SaveEventMock() not implemented")
 	}
-
-	return nil
+	return ep.SaveEventMock(entry)
 }
